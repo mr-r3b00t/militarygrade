@@ -1,0 +1,343 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Military Grade Encryption Tool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    #matrix-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.3;
+    }
+    .matrix-char {
+      fill: #0f0;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+    }
+    .container {
+      background: rgba(0, 0, 0, 0.85);
+      border: 2px solid #0f0;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+    }
+    input, textarea {
+      background: #111;
+      color: #0f0;
+      border: 1px solid #0f0;
+    }
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: #0f0;
+      box-shadow: 0 0 5px #0f0;
+    }
+    button {
+      transition: all 0.2s;
+    }
+    button:hover {
+      box-shadow: 0 0 10px #0f0;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 relative">
+  <svg id="matrix-bg"></svg>
+  <div class="container rounded-2xl p-8 max-w-lg w-full">
+    <h1 class="text-3xl font-bold text-green-500 mb-6 text-center">Military Grade Encryption Tool</h1>
+    
+    <!-- Tabs -->
+    <div class="flex mb-6">
+      <button id="textTab" class="flex-1 py-2 px-4 text-center bg-green-700 text-green-200 rounded-l-lg font-semibold">Text</button>
+      <button id="fileTab" class="flex-1 py-2 px-4 text-center bg-gray-800 text-green-200 rounded-r-lg font-semibold">File</button>
+    </div>
+
+    <!-- Text Encryption Section -->
+    <div id="textSection" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-green-400">Input Text</label>
+        <textarea id="inputText" rows="4" class="mt-1 w-full p-2 rounded-lg" placeholder="Enter text to encrypt"></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-green-400">Key (32 bytes, hex)</label>
+        <input id="keyInput" type="text" class="mt-1 w-full p-2 rounded-lg" placeholder="e.g., 1a2b3c... (64 hex chars)">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-green-400">IV (16 bytes, hex)</label>
+        <input id="ivInput" type="text" class="mt-1 w-full p-2 rounded-lg" placeholder="e.g., 1a2b3c... (32 hex chars)">
+      </div>
+      <div class="flex space-x-2">
+        <button id="generateKeys" class="flex-1 bg-green-600 text-green-100 py-2 rounded-lg hover:bg-green-500">Generate Key & IV</button>
+        <button id="exportTextKeys" class="flex-1 bg-purple-600 text-green-100 py-2 rounded-lg hover:bg-purple-500">Export Key & IV</button>
+        <button id="encryptText" class="flex-1 bg-blue-600 text-green-100 py-2 rounded-lg hover:bg-blue-500">Encrypt Text</button>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-green-400">Encrypted Output</label>
+        <textarea id="outputText" rows="4" readonly class="mt-1 w-full p-2 rounded-lg bg-gray-900" placeholder="Encrypted text will appear here"></textarea>
+      </div>
+    </div>
+
+    <!-- File Encryption Section -->
+    <div id="fileSection" class="space-y-4 hidden">
+      <div>
+        <label class="block text-sm font-medium text-green-400">Upload File</label>
+        <input id="fileInput" type="file" class="mt-1 w-full p-2 rounded-lg">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-green-400">Key (32 bytes, hex)</label>
+        <input id="fileKeyInput" type="text" class="mt-1 w-full p-2 rounded-lg" placeholder="e.g., 1a2b3c... (64 hex chars)">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-green-400">IV (16 bytes, hex)</label>
+        <input id="fileIvInput" type="text" class="mt-1 w-full p-2 rounded-lg" placeholder="e.g., 1a2b3c... (32 hex chars)">
+      </div>
+      <div class="flex space-x-2">
+        <button id="generateFileKeys" class="flex-1 bg-green-600 text-green-100 py-2 rounded-lg hover:bg-green-500">Generate Key & IV</button>
+        <button id="exportFileKeys" class="flex-1 bg-purple-600 text-green-100 py-2 rounded-lg hover:bg-purple-500">Export Key & IV</button>
+        <button id="encryptFile" class="flex-1 bg-blue-600 text-green-100 py-2 rounded-lg hover:bg-blue-500">Encrypt File</button>
+      </div>
+      <div id="fileOutput" class="text-sm text-green-400"></div>
+    </div>
+  </div>
+
+  <script>
+    // Matrix Background Animation
+    const svg = document.getElementById('matrix-bg');
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+
+    const chars = '0123456789ABCDEF';
+    const fontSize = 14;
+    const columns = Math.floor(width / fontSize);
+    const drops = Array(columns).fill(0);
+
+    function createChar() {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('class', 'matrix-char');
+      text.textContent = chars[Math.floor(Math.random() * chars.length)];
+      svg.appendChild(text);
+      return text;
+    }
+
+    function animate() {
+      drops.forEach((y, i) => {
+        if (Math.random() > 0.975 || y * fontSize > height) {
+          drops[i] = 0;
+        }
+        const text = createChar();
+        text.setAttribute('x', i * fontSize);
+        text.setAttribute('y', drops[i] * fontSize);
+        drops[i]++;
+        setTimeout(() => text.remove(), 2000);
+      });
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    // Tab Switching
+    const textTab = document.getElementById('textTab');
+    const fileTab = document.getElementById('fileTab');
+    const textSection = document.getElementById('textSection');
+    const fileSection = document.getElementById('fileSection');
+
+    textTab.addEventListener('click', () => {
+      textTab.classList.add('bg-green-700', 'text-green-200');
+      textTab.classList.remove('bg-gray-800', 'text-green-200');
+      fileTab.classList.add('bg-gray-800', 'text-green-200');
+      fileTab.classList.remove('bg-green-700', 'text-green-200');
+      textSection.classList.remove('hidden');
+      fileSection.classList.add('hidden');
+    });
+
+    fileTab.addEventListener('click', () => {
+      fileTab.classList.add('bg-green-700', 'text-green-200');
+      fileTab.classList.remove('bg-gray-800', 'text-green-200');
+      textTab.classList.add('bg-gray-800', 'text-green-200');
+      textTab.classList.remove('bg-green-700', 'text-green-200');
+      fileSection.classList.remove('hidden');
+      textSection.classList.add('hidden');
+    });
+
+    // Utility Functions
+    function hexToBytes(hex) {
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+      }
+      return bytes;
+    }
+
+    function bytesToHex(bytes) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function generateRandomHex(length) {
+      const bytes = new Uint8Array(length);
+      crypto.getRandomValues(bytes);
+      return bytesToHex(bytes);
+    }
+
+    // Validate Key and IV
+    function validateInputs(key, iv) {
+      if (!key || key.length !== 64 || !/^[0-9a-fA-F]+$/.test(key)) {
+        alert('Key must be 64 hex characters (32 bytes).');
+        return false;
+      }
+      if (!iv || iv.length !== 32 || !/^[0-9a-fA-F]+$/.test(iv)) {
+        alert('IV must be 32 hex characters (16 bytes).');
+        return false;
+      }
+      return true;
+    }
+
+    // Export Key and IV to File
+    function exportKeysToFile(key, iv, filename) {
+      if (!validateInputs(key, iv)) return;
+      const data = { key, iv };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Text Encryption
+    document.getElementById('generateKeys').addEventListener('click', async () => {
+      const key = await generateRandomHex(32);
+      const iv = await generateRandomHex(16);
+      document.getElementById('keyInput').value = key;
+      document.getElementById('ivInput').value = iv;
+    });
+
+    document.getElementById('exportTextKeys').addEventListener('click', () => {
+      const key = document.getElementById('keyInput').value;
+      const iv = document.getElementById('ivInput').value;
+      exportKeysToFile(key, iv, 'text_encryption_keys.json');
+    });
+
+    document.getElementById('encryptText').addEventListener('click', async () => {
+      const inputText = document.getElementById('inputText').value;
+      const keyHex = document.getElementById('keyInput').value;
+      const ivHex = document.getElementById('ivInput').value;
+
+      if (!inputText) {
+        alert('Please enter text to encrypt.');
+        return;
+      }
+      if (!validateInputs(keyHex, ivHex)) return;
+
+      try {
+        const keyBytes = hexToBytes(keyHex);
+        const ivBytes = hexToBytes(ivHex);
+        const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-CBC', true, ['encrypt']);
+        const encoder = new TextEncoder();
+        const data = encoder.encode(inputText);
+        const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv: ivBytes }, key, data);
+        const encryptedHex = bytesToHex(new Uint8Array(encrypted));
+        document.getElementById('outputText').value = encryptedHex;
+      } catch (e) {
+        alert('Encryption failed: ' + e.message);
+      }
+    });
+
+    // File Encryption
+    document.getElementById('generateFileKeys').addEventListener('click', async () => {
+      const key = await generateRandomHex(32);
+      const iv = await generateRandomHex(16);
+      document.getElementById('fileKeyInput').value = key;
+      document.getElementById('fileIvInput').value = iv;
+    });
+
+    document.getElementById('exportFileKeys').addEventListener('click', () => {
+      const key = document.getElementById('fileKeyInput').value;
+      const iv = document.getElementById('fileIvInput').value;
+      exportKeysToFile(key, iv, 'file_encryption_keys.json');
+    });
+
+    document.getElementById('encryptFile').addEventListener('click', async () => {
+      const fileInput = document.getElementById('fileInput');
+      const keyHex = document.getElementById('fileKeyInput').value;
+      const ivHex = document.getElementById('fileIvInput').value;
+
+      if (!fileInput.files.length) {
+        alert('Please select a file to encrypt.');
+        return;
+      }
+      if (!validateInputs(keyHex, ivHex)) return;
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const keyBytes = hexToBytes(keyHex);
+          const ivBytes = hexToBytes(ivHex);
+          const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-CBC', true, ['encrypt']);
+          const data = new Uint8Array(reader.result);
+          const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv: ivBytes }, key, data);
+          const encryptedBlob = new Blob([encrypted], { type: 'application/octet-stream' });
+          const url = URL.createObjectURL(encryptedBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = file.name + '.encrypted';
+          link.click();
+          URL.revokeObjectURL(url);
+          document.getElementById('fileOutput').textContent = 'File encrypted and downloaded.';
+        } catch (e) {
+          alert('File encryption failed: ' + e.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  </script>
+</body>
+</html>
