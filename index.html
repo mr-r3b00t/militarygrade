@@ -71,8 +71,26 @@
     }
     input, textarea {
       background: #111;
-      color: #0f0;
+      color: #00FF00 !important; /* Bright green text for inputs and textareas */
       border: 1px solid #0f0;
+    }
+    input::placeholder, textarea::placeholder {
+      color: #00FF00 !important; /* Bright green for placeholders */
+      opacity: 0.7;
+    }
+    input[type="file"] {
+      color: #00FF00 !important; /* Bright green for file input text */
+    }
+    input[type="file"]::-webkit-file-upload-button {
+      background: #111;
+      color: #00FF00;
+      border: 1px solid #0f0;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    input[type="file"]::-webkit-file-upload-button:hover {
+      background: #222;
     }
     textarea:focus, input:focus {
       outline: none;
@@ -147,7 +165,7 @@
   </div>
 
   <script>
-    // Matrix Background Animation
+    // Optimized Matrix Background Animation
     const svg = document.getElementById('matrix-bg');
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -156,27 +174,45 @@
 
     const chars = '0123456789ABCDEF';
     const fontSize = 14;
-    const columns = Math.floor(width / fontSize);
-    const drops = Array(columns).fill(0);
+    const columnSpacing = 20;
+    const columns = Math.floor(width / columnSpacing);
+    const drops = Array(columns).fill(0).map(() => ({ y: 0, text: null }));
+    const textPool = [];
 
-    function createChar() {
+    function getTextElement() {
+      if (textPool.length > 0) return textPool.pop();
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('class', 'matrix-char');
-      text.textContent = chars[Math.floor(Math.random() * chars.length)];
-      svg.appendChild(text);
       return text;
     }
 
+    function releaseTextElement(text) {
+      textPool.push(text);
+    }
+
     function animate() {
-      drops.forEach((y, i) => {
-        if (Math.random() > 0.975 || y * fontSize > height) {
-          drops[i] = 0;
+      drops.forEach((drop, i) => {
+        if (drop.y * fontSize > height || Math.random() > 0.98) {
+          if (drop.text) {
+            drop.text.remove();
+            releaseTextElement(drop.text);
+            drop.text = null;
+          }
+          drop.y = 0;
         }
-        const text = createChar();
-        text.setAttribute('x', i * fontSize);
-        text.setAttribute('y', drops[i] * fontSize);
-        drops[i]++;
-        setTimeout(() => text.remove(), 2000);
+        if (!drop.text && Math.random() > 0.95) {
+          drop.text = getTextElement();
+          drop.text.textContent = chars[Math.floor(Math.random() * chars.length)];
+          svg.appendChild(drop.text);
+        }
+        if (drop.text) {
+          drop.y++;
+          drop.text.setAttribute('x', i * columnSpacing);
+          drop.text.setAttribute('y', drop.y * fontSize);
+          if (Math.random() > 0.9) {
+            drop.text.textContent = chars[Math.floor(Math.random() * chars.length)];
+          }
+        }
       });
       requestAnimationFrame(animate);
     }
